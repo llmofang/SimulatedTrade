@@ -109,7 +109,7 @@ func getMarket() {
 
 		data_list := res.Data.([]*kdb.K)
 		table := data_list[2].Data.(kdb.Table)
-		fmt.Println("table.length :", table.Data[0].Len())
+		//		fmt.Println("table.length :", table.Data[0].Len())
 		for j := 0; j < table.Data[0].Len(); j++ {
 			kline_data := new(Market)
 

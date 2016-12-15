@@ -1,8 +1,8 @@
 package main
 
 import (
+	"container/smap"
 	"fmt"
-
 	"sync"
 	"time"
 
@@ -25,11 +25,12 @@ type Response struct {
 	Status      int64
 }
 
-var mapOrder map[string]*Response = make(map[string]*Response)
+var mapOrder smap.Map = smap.New(true)
 
 var orderChan chan int = make(chan int)
 
 func getTransaction() {
+
 	for {
 		var con *kdb.KDBConn
 		var err error
@@ -69,8 +70,8 @@ func getTransaction() {
 				continue
 			}
 
-			fmt.Println(kline_data)
-			mapOrder[kline_data.Qid] = kline_data
+			fmt.Println("get:", kline_data)
+			mapOrder.Set(kline_data.Qid, kline_data)
 
 		}
 
@@ -135,6 +136,7 @@ func dopub(kline_data *Response) {
 
 	var err2 error
 	err2 = con.AsyncCall("upd", &kdb.K{-kdb.KS, kdb.NONE, "response"}, tab)
+	fmt.Println("==dopub== finished:", kline_data)
 	if err2 != nil {
 		fmt.Println("Subscribe: %s", err2.Error())
 		return
