@@ -15,7 +15,23 @@ type Response struct {
 	Qid         string
 	Accountname string
 	Time        time.Time
-	Entrustno   int64
+	Entrustno   int32
+	Stockcode   string
+	Askprice    float64
+	Askvol      int32
+	Bidprice    float64
+	Bidvol      int32
+	Withdraw    int32
+	Status      int32
+}
+
+type ResponseInt64 struct {
+	sync.Mutex
+	Sym         string
+	Qid         string
+	Accountname string
+	Time        time.Time
+	Entrustno   int32
 	Stockcode   string
 	Askprice    float64
 	Askvol      int64
@@ -34,7 +50,7 @@ func getTransaction() {
 	for {
 		var con *kdb.KDBConn
 		var err error
-		con, err = kdb.DialKDB("127.0.0.1", 3900, "")
+		con, err = kdb.DialKDB("10.0.0.71", 5010, "")
 		//	con, err = kdb.DialKDB("139.196.77.165", 5033, "")
 		if err != nil {
 			fmt.Printf("Failed to connect kdb: %s", err.Error())
@@ -43,7 +59,7 @@ func getTransaction() {
 		}
 		//err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "Transaction"}, &kdb.K{-kdb.KS, kdb.NONE, ""})
 		//	err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "Market"}, &kdb.K{-kdb.KS, kdb.NONE, "603025"})
-		err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "response"}, &kdb.K{-kdb.KS, kdb.NONE, ""})
+		err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "request"}, &kdb.K{-kdb.KS, kdb.NONE, ""})
 		if err != nil {
 			fmt.Println("Subscribe: %s", err.Error())
 			return
@@ -63,14 +79,29 @@ func getTransaction() {
 
 		for i := 0; i < int(table.Data[0].Len()); i++ {
 			kline_data := &Response{}
+			kline_data2 := &ResponseInt64{}
 			err := kdb.UnmarshalDict(table.Index(i), kline_data)
 
 			if err != nil {
 				fmt.Println("Failed to unmrshall dict ", err)
 				continue
 			}
+			err2 := kdb.UnmarshalDict(table.Index(i), kline_data2)
 
+			if err2 != nil {
+				fmt.Println("Failed to unmrshall dict ", err2)
+				continue
+			}
 			fmt.Println("get:", kline_data)
+			fmt.Println("get2:", kline_data2)
+			if kline_data.Askvol == 0 && kline_data2.Askvol != 0 {
+				kline_data.Askvol = int32(kline_data2.Askvol)
+				kline_data.Withdraw = int32(kline_data2.Withdraw)
+			}
+			//			if kline_data.Askvol != 0 && kline_data2.Askvol == 0 {
+			//				kline_data2.Askvol = kline_data.Askvol
+			//				kline_data2.Withdraw = kline_data.Withdraw
+			//			}
 			mapOrder.Set(kline_data.Qid, kline_data)
 
 		}
@@ -108,11 +139,11 @@ func doUpsert() {
 
 }
 
-func dopub(kline_data *Response) {
+func dopub(kline_data *Response, sql string) {
 
 	var con *kdb.KDBConn
 	var err error
-	con, err = kdb.DialKDB("127.0.0.1", 3900, "")
+	con, err = kdb.DialKDB("10.0.0.71", 5010, "")
 	//	con, err = kdb.DialKDB("139.196.77.165", 5033, "")
 	if err != nil {
 		fmt.Printf("Failed to connect kdb: %s", err.Error())
@@ -135,12 +166,21 @@ func dopub(kline_data *Response) {
 	tab := &kdb.K{kdb.XT, kdb.NONE, kdb.Table{[]string{"sym", "qid", "accountname", "time", "entrustno", "stockcode", "askprice", "askvol", "bidprice", "bidvol", "withdraw", "status"}, []*kdb.K{sym, qid, accountname, mytime, entrustno, stockcode, askprice, askvol, bidprice, bidvol, withdraw, status}}}
 
 	var err2 error
-	err2 = con.AsyncCall("upd", &kdb.K{-kdb.KS, kdb.NONE, "response"}, tab)
-	fmt.Println("==dopub== finished:", kline_data)
+
+	err2 = con.AsyncCall(sql, &kdb.K{-kdb.KS, kdb.NONE, "response"}, tab)
+	//	fmt.Println("==dopub== finished:", kline_data)
 	if err2 != nil {
 		fmt.Println("Subscribe: %s", err2.Error())
 		return
 	}
+
+	//	var err3 error
+	//	err3 = con.AsyncCall(sql, &kdb.K{-kdb.KS, kdb.NONE, "response1"}, tab)
+	//	//	fmt.Println("==dopub== finished:", kline_data)
+	//	if err3 != nil {
+	//		fmt.Println("Subscribe: %s", err3.Error())
+	//		return
+	//	}
 }
 
 func getNumDate(datetime time.Time, local *time.Location) float64 {

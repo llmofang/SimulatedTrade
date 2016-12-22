@@ -123,7 +123,7 @@ func getMarket() {
 
 		}
 
-		time.Sleep(time.Second * 3)
+		//		time.Sleep(time.Second * 3)
 	}
 	marketChan <- 0
 }
