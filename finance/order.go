@@ -1,10 +1,11 @@
-package main
+package finance
 
 import (
-	"container/smap"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/smartwalle/container/smap"
 
 	kdb "github.com/sv/kdbgo"
 )

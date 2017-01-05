@@ -1,4 +1,4 @@
-package main
+package stat
 
 import (
 	"fmt"
@@ -42,6 +42,35 @@ type ResponseInt64 struct {
 	Status      int64
 }
 
+type STK struct {
+	sync.Mutex
+	SpaceStk   SpaceSTK
+	ProfitStk  ProfitSTK
+	orderArray []*Response
+}
+
+//仓位统计
+type SpaceSTK struct {
+	Sym          string
+	Accountname  string
+	Stockcode    string
+	SpaceVol     int32   //仓位
+	OnlineProfit float64 //浮动盈利
+}
+
+//利润统计
+type ProfitSTK struct {
+	Sym         string
+	Accountname string
+	Stockcode   string
+	PastProfit  float64 //已成利润
+	AvgPrice    float64 //均价
+	BidCount    int32   //交易笔数
+	BidNum      int32   //股数
+	BidMoneySum float64 //交易额
+	TotalTax    float64 //总费用
+}
+
 type StaticsResult struct { //统计仓位  统计利润都用这个
 	sync.Mutex
 	Sym          string
@@ -60,15 +89,14 @@ type StaticsResult struct { //统计仓位  统计利润都用这个
 	SpaceProfit  int32   //仓位盈利
 	OnlineProfit float64 //浮动盈利
 	PastProfit   float64 //已成利润
-	Cost         float64 //成本
-	AvgPrice     float64 //均价
-	BidCount     int32   //交易笔数
-	BidNum       int32   //股数
-	BidMoneySum  float64 //交易额
-	Tax          float64 //单笔费用
-	TotalTax     float64 //总费用
+	//	Cost         float64 //成本
+	AvgPrice    float64 //均价
+	BidCount    int32   //交易笔数
+	BidNum      int32   //股数
+	BidMoneySum float64 //交易额
+	//	Tax         float64 //单笔费用
+	TotalTax float64 //总费用
 }
-
 type Market struct {
 	Sym                  string
 	Time                 time.Time
@@ -150,7 +178,7 @@ var marketChan chan int = make(chan int)
 var orderChan chan int = make(chan int)
 var tChan chan int = make(chan int)
 
-func main() {
+func DoMain() {
 	//nmatch是市价
 	fmt.Println("==stat=main===")
 	SelectTransaction()
@@ -217,52 +245,66 @@ func SelectTransaction() {
 }
 
 func handleData(kline_data *Response) {
-	if kline_data.Sym == "liuyiqi" {
+	if kline_data.Sym == "zhangchao" {
 
-		fmt.Println("==handleData1111111111==", kline_data)
+		//		fmt.Println("==handleData1111111111==", kline_data)
 		if kline_data.Status == 4 || kline_data.Status == 5 {
 			user := kline_data.Sym
 			account := kline_data.Accountname
-			fmt.Println("==account==", account)
-			stat := &StaticsResult{}
-			stat.Sym = kline_data.Sym
-			stat.Accountname = kline_data.Accountname
-			stat.Bidprice = kline_data.Bidprice
-			stat.Bidvol = kline_data.Bidvol
-			stat.Qid = kline_data.Qid
-			stat.Stockcode = kline_data.Stockcode
+			//			fmt.Println("==account==", account)
 
-			//		var stat *StaticsResult
-			var usr_map smap.Map
+			//			var stat *StaticsResult
+			stat := &STK{}
+			p := ProfitSTK{}
+			s := SpaceSTK{}
+			stat.ProfitStk = p
+			stat.SpaceStk = s
+
+			arr := []*Response{}
+			stat.orderArray = arr
+			stat.ProfitStk.Sym = kline_data.Sym
+			stat.ProfitStk.Accountname = kline_data.Accountname
+			stat.ProfitStk.Stockcode = kline_data.Stockcode
+			stat.SpaceStk.Sym = kline_data.Sym
+			stat.SpaceStk.Accountname = kline_data.Accountname
+			stat.SpaceStk.Stockcode = kline_data.Stockcode
+
 			var acc_map smap.Map
 			if mapResult.Exists(user) {
-				usr_map = (mapResult.Value(user)).(smap.Map)
+				acc_map = (mapResult.Value(user)).(smap.Map)
 
-				if usr_map.Exists(account) {
-					acc_map := usr_map.Value(account).(smap.Map)
-					if acc_map.Exists(acc_map.Value(kline_data.Stockcode)) {
-						stat = (acc_map.Value(kline_data.Stockcode)).(*StaticsResult)
+				if acc_map.Exists(account) {
+					stock_map := acc_map.Value(account).(smap.Map)
+					if stock_map.Exists(kline_data.Stockcode) {
+
+						stat = (stock_map.Value(kline_data.Stockcode)).(*STK)
+
 					} else {
-						acc_map.Set(kline_data.Stockcode, stat)
+
+						stock_map.Set(kline_data.Stockcode, stat)
+
 					}
 
 				} else {
-					acc_map = smap.New(true)
-					acc_map.Set(kline_data.Stockcode, stat)
-					usr_map.Set(account, acc_map)
+
+					stock_map := smap.New(true)
+					stock_map.Set(kline_data.Stockcode, stat)
+					acc_map.Set(account, stock_map)
+
 				}
 			} else {
+
+				stock_map := smap.New(true)
+				stock_map.Set(kline_data.Stockcode, stat)
 				acc_map = smap.New(true)
-				usr_map = smap.New(true)
-				acc_map.Set(kline_data.Stockcode, stat)
-				usr_map.Set(account, acc_map)
 
-				mapResult.Set(user, usr_map)
+				acc_map.Set(account, stock_map)
+
+				mapResult.Set(user, acc_map)
+
 			}
-			//			fmt.Println("result:", mapResult)
-			//			fmt.Println("stat:", stat)
-			DoCalculate(kline_data, stat)
-
+			stat.orderArray = append(stat.orderArray, kline_data)
+			DoCalculateSTK(stat)
 		}
 	}
 }
@@ -389,9 +431,16 @@ func GetMarket() {
 	marketChan <- 0
 }
 
+//新的统计方法，把订单数组每个都重新算一遍
+func DoCalculateSTK(stk *STK) {
+	//	for i, order := range stk.orderArray {
+
+	//	}
+}
+
 func DoCalculate(newOrder *Response, stat *StaticsResult) {
-	//	fmt.Println("ssssssssssssstat", stat)
-	//	fmt.Println("newOrder", newOrder)
+	fmt.Println("stat:       ", stat)
+	fmt.Println("newOrder", newOrder)
 	stat.Lock()
 	//StaticsResult为实时统计对象，每一个交易完成，刷下统计
 	if newOrder.Bidvol != 0 {
@@ -399,66 +448,91 @@ func DoCalculate(newOrder *Response, stat *StaticsResult) {
 		//算仓位 不管买还是卖，仓位都是相加减
 
 		var spaceTemp int32 = stat.SpaceProfit //临时对象记录下之前的仓位量
+		var avgTemp float64 = stat.AvgPrice    //临时对象记录下之前的均价
 		//卖的大于原有仓位
 		var flag bool = false
 
-		var soldNum int32 = AbsInt(newOrder.Bidvol) //本笔卖出的量
-		if newOrder.Bidvol < 0 && AbsInt(newOrder.Bidvol) >= stat.SpaceProfit {
+		if AbsInt(newOrder.Bidvol) >= AbsInt(stat.SpaceProfit) {
 			flag = true
 		}
 
-		//		fmt.Println(spaceTemp)
-		if newOrder.Bidvol < 0 {
-			if flag {
-				//卖的大于原有仓位
-				stat.SpaceProfit = 0
-			} else {
-				stat.SpaceProfit = AbsInt(stat.SpaceProfit + newOrder.Bidvol)
-			}
-		} else {
-			stat.SpaceProfit = AbsInt(stat.SpaceProfit + newOrder.Bidvol)
-		}
-
+		stat.SpaceProfit = stat.SpaceProfit + newOrder.Bidvol
 		if newOrder.Bidvol > 0 {
 			//算均价
-			stat.Cost = stat.Cost + newOrder.Bidprice*(float64(newOrder.Bidvol))
-			stat.AvgPrice = stat.Cost / (float64(stat.SpaceProfit))
-			fmt.Println("算均价", stat.AvgPrice)
-		} else {
-			if spaceTemp == 0 {
-				stat.AvgPrice = newOrder.Bidprice
-			}
-		}
-		stat.AvgPrice = Float64Fmt(stat.AvgPrice, 2)
-		//算费用  买是万三  卖是千一加上万三
-		if newOrder.Bidvol > 0 {
-			stat.Tax = Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 3 / 10000
-
-		} else {
-			stat.Tax = Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 13 / 10000
-		}
-		stat.TotalTax = stat.TotalTax + stat.Tax
-		stat.TotalTax = Float64Fmt(stat.TotalTax, 2)
-		fmt.Println("算费用", stat.TotalTax)
-		//算利润
-		if newOrder.Bidvol > 0 {
-			stat.PastProfit = stat.PastProfit - stat.Tax
-		} else if newOrder.Bidvol < 0 {
-			//算出卖掉多少
-			if flag {
-				soldNum = stat.SpaceProfit
+			if spaceTemp < 0 {
+				if flag {
+					stat.AvgPrice = newOrder.Bidprice
+				} else {
+					stat.AvgPrice = stat.AvgPrice
+				}
 
 			} else {
-				soldNum = AbsInt(newOrder.Bidvol)
-
+				stat.AvgPrice = (stat.AvgPrice*(float64(spaceTemp)) + newOrder.Bidprice*float64(newOrder.Bidvol)) / (float64(stat.SpaceProfit))
 			}
-			stat.PastProfit = stat.PastProfit + (newOrder.Bidprice-stat.AvgPrice)*float64(soldNum) - stat.Tax
+
+		} else {
+			if spaceTemp > 0 {
+				if flag {
+					stat.AvgPrice = newOrder.Bidprice
+				} else {
+					stat.AvgPrice = stat.AvgPrice
+				}
+
+			} else {
+				stat.AvgPrice = Abs(stat.AvgPrice*(float64(spaceTemp)) + newOrder.Bidprice*float64(newOrder.Bidvol)/(float64(stat.SpaceProfit)))
+			}
 		}
+		stat.AvgPrice = Abs(Float64Fmt(stat.AvgPrice, 2))
+		fmt.Println("算均价", stat.AvgPrice)
+		//算费用  买是万三  卖是千一加上万三
+		var stattax float64
+		if newOrder.Bidvol > 0 {
+			stattax = Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 3 / 10000
+
+		} else {
+			stattax = Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 13 / 10000
+		}
+		fmt.Println("之前费用", stat.TotalTax)
+		stat.TotalTax = stat.TotalTax + stattax
+		stat.TotalTax = Float64Fmt(stat.TotalTax, 2)
+		fmt.Println("算费用", stat.TotalTax)
+
+		//算利润
+
+		var soldNum int32 = AbsInt(newOrder.Bidvol) //本笔卖出的量
+		if flag {
+			//卖的大于原有仓位
+
+			soldNum = AbsInt(spaceTemp)
+
+		} else {
+			soldNum = AbsInt(newOrder.Bidvol)
+		}
+		if newOrder.Bidvol > 0 {
+			if spaceTemp < 0 {
+				g := (Abs(newOrder.Bidprice) - avgTemp) * float64(soldNum)
+				fmt.Println("ggggggggggggggain:", g, "soldNum", soldNum)
+				stat.PastProfit = stat.PastProfit + g - stattax
+			} else {
+				stat.PastProfit = stat.PastProfit - stattax
+			}
+
+		} else if newOrder.Bidvol < 0 {
+			if spaceTemp > 0 {
+				g := (Abs(newOrder.Bidprice) - avgTemp) * float64(soldNum)
+				fmt.Println("ggggggggggggggain:", g, "soldNum", soldNum)
+				stat.PastProfit = stat.PastProfit + g - stattax
+			} else {
+				stat.PastProfit = stat.PastProfit - stattax
+			}
+
+		}
+
 		stat.PastProfit = Float64Fmt(stat.PastProfit, 2)
 		fmt.Println("算利润", stat.PastProfit)
 
 		//算交易笔数
-		stat.BidCount++
+		stat.BidCount = stat.BidCount + 1
 
 		//算交易股数
 		stat.BidNum = stat.BidNum + soldNum
@@ -469,6 +543,8 @@ func DoCalculate(newOrder *Response, stat *StaticsResult) {
 
 	}
 	stat.Unlock()
+
+	fmt.Println("finish___stat:       ", stat)
 }
 func DoRefresh(nMatch float64, stat *StaticsResult) {
 	stat.Lock()
@@ -486,22 +562,31 @@ func gotest(i int) {
 }
 
 func printMap() {
-	fmt.Println("用户       账户         票     仓位     均价     浮盈   利润     费用    笔数    股数   交易额")
-	//	for {
-	for _, user_map := range mapResult.Values() {
-		//			fmt.Println("usr_map:", user_map)
-		for _, account_map := range (user_map.(smap.Map)).Values() {
-			//				fmt.Println("account_map:", account_map)
-			stat := account_map.(*StaticsResult)
-			//				fmt.Println("stat:", stat)
+	for {
+		//		fmt.Println("map:::", mapResult)
+		fmt.Println("用户       账户         票     仓位     均价     浮盈   利润     费用    笔数    股数   交易额")
 
-			fmt.Println(stat.Sym, "  ", stat.Accountname, "  ", stat.Stockcode, "  ", stat.SpaceProfit, "   ", stat.AvgPrice, "   ", stat.OnlineProfit, "   ", stat.PastProfit, "   ", stat.TotalTax, "  ", stat.BidCount, "  ", stat.BidNum, "  ", stat.BidMoneySum)
+		for _, user_map := range mapResult.Values() {
+			//累积每个用户的总浮动盈亏和 总仓位
+			var totalOnlineProfit float64
+			var totalProfit float64
+			for _, account_map := range (user_map.(smap.Map)).Values() {
+
+				for _, stock_map := range (account_map.(smap.Map)).Values() {
+
+					stat := stock_map.(*StaticsResult)
+					totalOnlineProfit = totalOnlineProfit + stat.OnlineProfit
+					totalProfit = totalProfit + stat.PastProfit
+					fmt.Println(stat.Sym, "  ", stat.Accountname, "  ", stat.Stockcode, "  ", stat.SpaceProfit, "   ", stat.AvgPrice, "   ", stat.OnlineProfit, "   ", stat.PastProfit, "   ", stat.TotalTax, "  ", stat.BidCount, "  ", stat.BidNum, "  ", stat.BidMoneySum)
+
+				}
+
+			}
+			fmt.Println("总浮动盈亏:", totalOnlineProfit, "总利润:", totalProfit)
 		}
-	}
-	//		fmt.Println("print")
-	time.Sleep(time.Second * 2)
-	//	}
 
+		time.Sleep(time.Second * 2)
+	}
 }
 
 //

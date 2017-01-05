@@ -1,4 +1,4 @@
-package main
+package finance
 
 import (
 	"fmt"
@@ -127,3 +127,46 @@ func getMarket() {
 	}
 	marketChan <- 0
 }
+
+//func UpdateToKDB(kline_data *Market, sql string) {
+//	var con *kdb.KDBConn
+//	var err error
+//	con, err = kdb.DialKDB("10.0.0.71", 5010, "")
+//	//	con, err = kdb.DialKDB("139.196.77.165", 5033, "")
+//	if err != nil {
+//		fmt.Printf("Failed to connect kdb: %s", err.Error())
+//		return
+
+//	}
+//	sym := &kdb.K{kdb.KS, kdb.NONE, []string{kline_data.Sym}}
+//	szWindCode := &kdb.K{kdb.KS, kdb.NONE, []string{kline_data.SzWindCode}}
+//	accountname := &kdb.K{kdb.KS, kdb.NONE, []string{kline_data.Accountname}}
+//	ftest := getNumDate(kline_data.Time.Local(), kline_data.Time.Location())
+//	mytime := &kdb.K{kdb.KZ, kdb.NONE, []float64{float64(ftest)}}
+//	entrustno := &kdb.K{kdb.KI, kdb.NONE, []int32{int32(kline_data.Entrustno)}}
+//	stockcode := &kdb.K{kdb.KS, kdb.NONE, []string{kline_data.Stockcode}}
+//	askprice := &kdb.K{kdb.KF, kdb.NONE, []float64{kline_data.Askprice}}
+//	askvol := &kdb.K{kdb.KI, kdb.NONE, []int32{int32(kline_data.Askvol)}}
+//	bidprice := &kdb.K{kdb.KF, kdb.NONE, []float64{kline_data.Bidprice}}
+//	bidvol := &kdb.K{kdb.KI, kdb.NONE, []int32{int32(kline_data.Bidvol)}}
+//	withdraw := &kdb.K{kdb.KI, kdb.NONE, []int32{int32(kline_data.Withdraw)}}
+//	status := &kdb.K{kdb.KI, kdb.NONE, []int32{int32(kline_data.Status)}}
+//	tab := &kdb.K{kdb.XT, kdb.NONE, kdb.Table{[]string{"sym", "qid", "accountname", "time", "entrustno", "stockcode", "askprice", "askvol", "bidprice", "bidvol", "withdraw", "status"}, []*kdb.K{sym, qid, accountname, mytime, entrustno, stockcode, askprice, askvol, bidprice, bidvol, withdraw, status}}}
+
+//	var err2 error
+
+//	err2 = con.AsyncCall(sql, &kdb.K{-kdb.KS, kdb.NONE, "response"}, tab)
+//	//	fmt.Println("==dopub== finished:", kline_data)
+//	if err2 != nil {
+//		fmt.Println("Subscribe: %s", err2.Error())
+//		return
+//	}
+
+//	//	var err3 error
+//	//	err3 = con.AsyncCall(sql, &kdb.K{-kdb.KS, kdb.NONE, "response1"}, tab)
+//	//	//	fmt.Println("==dopub== finished:", kline_data)
+//	//	if err3 != nil {
+//	//		fmt.Println("Subscribe: %s", err3.Error())
+//	//		return
+//	//	}
+//}

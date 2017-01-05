@@ -1,5 +1,5 @@
 // finance project finance.go
-package main
+package finance
 
 import (
 	"fmt"
@@ -22,18 +22,18 @@ func DoMain() {
 
 }
 
-func main() {
-	//  nmatch是市价
-	fmt.Println("===main===")
+//func main() {
+//	//  nmatch是市价
+//	fmt.Println("===main===")
 
-	go getMarket()
-	go getTransaction()
+//	go getMarket()
+//	go getTransaction()
 
-	go dohandle()
-	<-marketChan
-	fmt.Println("===over===")
+//	go dohandle()
+//	<-marketChan
+//	fmt.Println("===over===")
 
-}
+//}
 
 func dohandle() {
 	fmt.Println("==thread   ==  dohandle==", time.Now())
