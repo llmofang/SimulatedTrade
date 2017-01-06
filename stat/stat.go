@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartwalle/container/smap"
 
+	"math"
+
 	kdb "github.com/sv/kdbgo"
 )
 
@@ -72,30 +74,6 @@ type ProfitSTK struct {
 	TotalTax    float64 //总费用
 }
 
-type StaticsResult struct { //统计仓位  统计利润都用这个
-	sync.Mutex
-	Sym          string
-	Qid          string
-	Accountname  string
-	Time         time.Time
-	Entrustno    int32
-	Stockcode    string
-	Askprice     float64
-	Askvol       int32
-	Bidprice     float64
-	Bidvol       int32
-	Withdraw     int32
-	Status       int32
-	RemainVol    int32
-	SpaceProfit  int32   //仓位盈利
-	OnlineProfit float64 //浮动盈利
-	PastProfit   float64 //已成利润
-	AvgPrice     float64 //均价
-	BidCount     int32   //交易笔数
-	BidNum       int32   //股数
-	BidMoneySum  float64 //交易额
-	TotalTax     float64 //总费用
-}
 type Market struct {
 	Sym                  string
 	Time                 time.Time
@@ -164,14 +142,8 @@ type Market struct {
 	NSD2                 int32
 }
 
-// Map<String,Map<String,SET<RESPONSE>>>
-//var mapALLOrder smap.Map = smap.New(true)
-
-// Map<String,Map<String,Map<String,StaticsResult>>> 仓位的统计存放容器
+// Map<String,Map<String,Map<String,STK>>> 仓位的统计存放容器
 var mapResult smap.Map = smap.New(true)
-
-// Map<String,Map<String,StaticsResult>> 利润的统计存放容器
-//var mapProfit smap.Map = smap.New(true)
 
 var marketChan chan int = make(chan int)
 var orderChan chan int = make(chan int)
@@ -244,70 +216,67 @@ func SelectTransaction() {
 	//	fmt.Println("==SelectTransaction  is over ==")
 }
 
+//按照 用户->账户->股票 结构初始化map容器下每一个STK统计对象。每个STK对应的是哪个用户下哪个账户的哪个票。然后新订单来了，拿对应的STK来做统计
 func handleData(kline_data *Response) {
-	if kline_data.Sym == "liuyiqi" {
-		fmt.Println("select:", kline_data)
-		//		fmt.Println("==handleData1111111111==", kline_data)
-		//		if kline_data.Status == 4 || kline_data.Status == 5 {
-		user := kline_data.Sym
-		account := kline_data.Accountname
-		//			fmt.Println("==account==", account)
 
-		//			var stat *StaticsResult
-		stat := &STK{}
-		p := ProfitSTK{}
-		s := SpaceSTK{}
-		stat.ProfitStk = p
-		stat.SpaceStk = s
+	fmt.Println("select:", kline_data)
 
-		arr := []*Response{}
-		stat.orderArray = arr
-		stat.ProfitStk.Sym = kline_data.Sym
-		stat.ProfitStk.Accountname = kline_data.Accountname
-		stat.ProfitStk.Stockcode = kline_data.Stockcode
+	user := kline_data.Sym
+	account := kline_data.Accountname
 
-		stat.SpaceStk.Sym = kline_data.Sym
-		stat.SpaceStk.Accountname = kline_data.Accountname
-		stat.SpaceStk.Stockcode = kline_data.Stockcode
+	stat := &STK{}
+	p := ProfitSTK{}
+	s := SpaceSTK{}
+	stat.ProfitStk = p
+	stat.SpaceStk = s
 
-		var acc_map smap.Map
-		if mapResult.Exists(user) {
-			acc_map = (mapResult.Value(user)).(smap.Map)
+	arr := []*Response{}
+	stat.orderArray = arr
+	stat.ProfitStk.Sym = kline_data.Sym
+	stat.ProfitStk.Accountname = kline_data.Accountname
+	stat.ProfitStk.Stockcode = kline_data.Stockcode
 
-			if acc_map.Exists(account) {
-				stock_map := acc_map.Value(account).(smap.Map)
-				if stock_map.Exists(kline_data.Stockcode) {
+	stat.SpaceStk.Sym = kline_data.Sym
+	stat.SpaceStk.Accountname = kline_data.Accountname
+	stat.SpaceStk.Stockcode = kline_data.Stockcode
 
-					stat = (stock_map.Value(kline_data.Stockcode)).(*STK)
+	var acc_map smap.Map
+	if mapResult.Exists(user) {
+		acc_map = (mapResult.Value(user)).(smap.Map)
 
-				} else {
+		if acc_map.Exists(account) {
+			stock_map := acc_map.Value(account).(smap.Map)
+			if stock_map.Exists(kline_data.Stockcode) {
 
-					stock_map.Set(kline_data.Stockcode, stat)
-
-				}
+				stat = (stock_map.Value(kline_data.Stockcode)).(*STK)
 
 			} else {
 
-				stock_map := smap.New(true)
 				stock_map.Set(kline_data.Stockcode, stat)
-				acc_map.Set(account, stock_map)
 
 			}
+
 		} else {
 
 			stock_map := smap.New(true)
 			stock_map.Set(kline_data.Stockcode, stat)
-			acc_map = smap.New(true)
-
 			acc_map.Set(account, stock_map)
 
-			mapResult.Set(user, acc_map)
-
 		}
-		//			stat.orderArray = append(stat.orderArray, kline_data)
-		DoCalculateSTK(kline_data, stat)
+	} else {
+
+		stock_map := smap.New(true)
+		stock_map.Set(kline_data.Stockcode, stat)
+		acc_map = smap.New(true)
+
+		acc_map.Set(account, stock_map)
+
+		mapResult.Set(user, acc_map)
+
 	}
-	//	}
+
+	DoCalculateSTK(kline_data, stat)
+
 }
 
 func GetTransaction() {
@@ -372,27 +341,26 @@ func GetTransaction() {
 	}
 }
 
+//获取行情数据来统计map内每个票的浮动盈亏
 func GetMarket() {
 	for {
 		fmt.Println("==GetMarket==", time.Now())
 		var con *kdb.KDBConn
 		var err error
-		con, err = kdb.DialKDB("10.0.0.71", 5010, "")
-		//	con, err = kdb.DialKDB("139.196.77.165", 5033, "")
+		//		con, err = kdb.DialKDB("10.0.0.71", 5010, "")
+		con, err = kdb.DialKDB("139.196.77.165", 5031, "")
+
 		if err != nil {
 			fmt.Printf("Failed to connect kdb: %s", err.Error())
 			return
 
 		}
-		//err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "Transaction"}, &kdb.K{-kdb.KS, kdb.NONE, ""})
-		//	err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "Market"}, &kdb.K{-kdb.KS, kdb.NONE, "603025"})
+
 		err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "Market"}, &kdb.K{-kdb.KS, kdb.NONE, ""})
 		if err != nil {
 			fmt.Println("Subscribe: %s", err.Error())
 			return
 		}
-
-		// ignore type print output
 
 		res, _, err := con.ReadMessage()
 
@@ -432,29 +400,29 @@ func GetMarket() {
 	marketChan <- 0
 }
 
-//新的统计方法，把订单数组每个都重新算一遍
+//再算每个订单之前，要判断是不是增量。算完之后，把订单存到数组
 func DoCalculateSTK(newOrder *Response, stk *STK) {
 
 	fmt.Println("---DoCalculateSTK    newOrder:", newOrder)
 	fmt.Println("---DoCalculateSTK    stk:", stk)
-	//清除
-	stk.SpaceStk.AvgPrice = 0
-	stk.SpaceStk.OnlineProfit = 0
-	stk.SpaceStk.SpaceVol = 0
-	stk.ProfitStk.BidCount = 0
-	stk.ProfitStk.BidMoneySum = 0
-	stk.ProfitStk.BidNum = 0
-	stk.ProfitStk.PastProfit = 0
-	stk.ProfitStk.TotalTax = 0
+	//	//清除
+	//	stk.SpaceStk.AvgPrice = 0
+	//	stk.SpaceStk.OnlineProfit = 0
+	//	stk.SpaceStk.SpaceVol = 0
+	//	stk.ProfitStk.BidCount = 0
+	//	stk.ProfitStk.BidMoneySum = 0
+	//	stk.ProfitStk.BidNum = 0
+	//	stk.ProfitStk.PastProfit = 0
+	//	stk.ProfitStk.TotalTax = 0
 
-	//之前的全部统计一遍
-	for _, order := range stk.orderArray {
+	//	//之前的全部统计一遍
+	//	for _, order := range stk.orderArray {
 
-		if order.Bidvol != 0 && (order.Status == 2 || order.Status == 5 || order.Status == 4) {
-			CalculateSingle(order, stk)
-		}
+	//		if order.Bidvol != 0 && (order.Status == 2 || order.Status == 5 || order.Status == 4) {
+	//			CalculateSingle(order, stk)
+	//		}
 
-	}
+	//	}
 	//先统计新订单，再更新订单数组
 	if newOrder.Status == 4 {
 		CalculateSingle(newOrder, stk)
@@ -494,6 +462,7 @@ func DoCalculateSTK(newOrder *Response, stk *STK) {
 		if flag {
 			updateArray(stk, index, newOrder)
 		} else {
+			CalculateSingle(newOrder, stk)
 			stk.orderArray = append(stk.orderArray, newOrder)
 		}
 	} else {
@@ -512,6 +481,7 @@ func CalculateSingle(newOrder *Response, stat *STK) {
 		//算仓位 不管买还是卖，仓位都是相加减
 
 		var spaceTemp int32 = stat.SpaceStk.SpaceVol //临时对象记录下之前的仓位量
+
 		var avgTemp float64 = stat.SpaceStk.AvgPrice //临时对象记录下之前的均价
 		//卖的大于原有仓位
 		var flag bool = false
@@ -526,21 +496,21 @@ func CalculateSingle(newOrder *Response, stat *STK) {
 			//算均价
 			if spaceTemp < 0 {
 				if flag {
-					stat.SpaceStk.AvgPrice = Abs(newOrder.Bidprice)
+					stat.SpaceStk.AvgPrice = math.Abs(newOrder.Bidprice)
 				}
 
 			} else {
-				stat.SpaceStk.AvgPrice = Abs((stat.SpaceStk.AvgPrice*(float64(spaceTemp)) + newOrder.Bidprice*float64(newOrder.Bidvol)) / float64(stat.SpaceStk.SpaceVol))
+				stat.SpaceStk.AvgPrice = math.Abs((stat.SpaceStk.AvgPrice*(float64(spaceTemp)) + newOrder.Bidprice*float64(newOrder.Bidvol)) / float64(stat.SpaceStk.SpaceVol))
 			}
 
 		} else {
 			if spaceTemp > 0 {
 				if flag {
-					stat.SpaceStk.AvgPrice = Abs(newOrder.Bidprice)
+					stat.SpaceStk.AvgPrice = math.Abs(newOrder.Bidprice)
 				}
 
 			} else {
-				stat.SpaceStk.AvgPrice = Abs((stat.SpaceStk.AvgPrice*(float64(spaceTemp)) + newOrder.Bidprice*float64(newOrder.Bidvol)) / float64(stat.SpaceStk.SpaceVol))
+				stat.SpaceStk.AvgPrice = math.Abs((stat.SpaceStk.AvgPrice*(float64(spaceTemp)) + newOrder.Bidprice*float64(newOrder.Bidvol)) / float64(stat.SpaceStk.SpaceVol))
 			}
 		}
 
@@ -548,10 +518,10 @@ func CalculateSingle(newOrder *Response, stat *STK) {
 		//算费用  买是万三  卖是千一加上万三
 		var stattax float64
 		if newOrder.Bidvol > 0 {
-			stattax = Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 3 / 10000
+			stattax = math.Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 3 / 10000
 
 		} else {
-			stattax = Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 13 / 10000
+			stattax = math.Abs(float64(newOrder.Bidprice*float64(newOrder.Bidvol))) * 13 / 10000
 		}
 		fmt.Println("之前费用", stat.ProfitStk.TotalTax, "  本次费用  ", stattax)
 		stat.ProfitStk.TotalTax = stat.ProfitStk.TotalTax + stattax
@@ -601,7 +571,7 @@ func CalculateSingle(newOrder *Response, stat *STK) {
 		fmt.Println("after  stat.ProfitStk.BidNum  ", stat.ProfitStk.BidNum)
 		//算交易额
 
-		stat.ProfitStk.BidMoneySum = stat.ProfitStk.BidMoneySum + Abs(float64(AbsInt(newOrder.Bidvol))*newOrder.Bidprice)
+		stat.ProfitStk.BidMoneySum = stat.ProfitStk.BidMoneySum + math.Abs(float64(AbsInt(newOrder.Bidvol))*newOrder.Bidprice)
 
 	}
 	stat.Unlock()
@@ -610,16 +580,9 @@ func CalculateSingle(newOrder *Response, stat *STK) {
 func DoRefresh(nMatch float64, stat *STK) {
 	stat.Lock()
 	//非交易统计，每次实时价格减去均价和费用不断出现浮动盈利
-	stat.SpaceStk.OnlineProfit = (float64(stat.SpaceStk.SpaceVol) * (nMatch - stat.SpaceStk.AvgPrice)) - (Abs(float64(nMatch*float64(stat.SpaceStk.SpaceVol))) * 13 / 10000)
+	stat.SpaceStk.OnlineProfit = (float64(stat.SpaceStk.SpaceVol) * (nMatch - stat.SpaceStk.AvgPrice)) - (math.Abs(float64(nMatch*float64(stat.SpaceStk.SpaceVol))) * 13 / 10000)
 	stat.SpaceStk.OnlineProfit = Float64Fmt(stat.SpaceStk.OnlineProfit, 64)
 	stat.Unlock()
-}
-
-func gotest(i int) {
-	fmt.Println("this is :", i)
-
-	time.Sleep(time.Second * 1)
-	tChan <- 0
 }
 
 func printMap() {
@@ -651,12 +614,12 @@ func printMap() {
 }
 
 //
-func Abs(f float64) float64 {
-	if f < 0 {
-		return float64(-f)
-	}
-	return float64(f)
-}
+//func Abs(f float64) float64 {
+//	if f < 0 {
+//		return float64(-f)
+//	}
+//	return float64(f)
+//}
 
 func AbsInt(f int32) int32 {
 	if f < 0 {
