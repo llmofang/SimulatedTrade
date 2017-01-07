@@ -57,7 +57,7 @@ func dohandle() {
 					v_order.Withdraw = v_order.Askvol
 					v_order.Time = time.Now()
 
-					dopub(v_order, "wsupd")
+					Dopub(v_order, "wsupd")
 					mapOrderForDelete[v_order.Qid] = v_order
 					fmt.Println("撤单状态已经5", v_order)
 				} else if v_order.Status == 1 {
@@ -75,7 +75,7 @@ func dohandle() {
 								v_order.Bidprice = v_order.Askprice
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
-								dopub(v_order, "wsupd")
+								Dopub(v_order, "wsupd")
 								v_order.Unlock()
 								fmt.Println("交易完成状态已经4 :", v_order)
 							}
@@ -91,7 +91,7 @@ func dohandle() {
 								v_order.Bidprice = v_order.Askprice
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
-								dopub(v_order, "wsupd")
+								Dopub(v_order, "wsupd")
 								v_order.Unlock()
 								fmt.Println("交易完成状态已经4 :", v_order)
 							}
@@ -111,7 +111,7 @@ func dohandle() {
 					v_order.Entrustno = int32(entrustno)
 					v_order.Time = time.Now()
 
-					dopub(v_order, "wsupd")
+					Dopub(v_order, "wsupd")
 					v_order.Unlock()
 					fmt.Println("状态已经改成1  ", v_order)
 				}

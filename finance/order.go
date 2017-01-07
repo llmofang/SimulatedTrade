@@ -7,6 +7,11 @@ import (
 
 	"github.com/smartwalle/container/smap"
 
+	"reflect"
+
+	"errors"
+	"strings"
+
 	kdb "github.com/sv/kdbgo"
 )
 
@@ -140,12 +145,12 @@ func doUpsert() {
 
 }
 
-func dopub(kline_data *Response, sql string) {
+func Dopub(kline_data *Response, sql string) {
 
 	var con *kdb.KDBConn
 	var err error
-	con, err = kdb.DialKDB("10.0.0.71", 5010, "")
-	//	con, err = kdb.DialKDB("139.196.77.165", 5033, "")
+	//	con, err = kdb.DialKDB("10.0.0.71", 5010, "")
+	con, err = kdb.DialKDB("127.0.0.1", 3900, "")
 	if err != nil {
 		fmt.Printf("Failed to connect kdb: %s", err.Error())
 		return
@@ -167,7 +172,7 @@ func dopub(kline_data *Response, sql string) {
 	tab := &kdb.K{kdb.XT, kdb.NONE, kdb.Table{[]string{"sym", "qid", "accountname", "time", "entrustno", "stockcode", "askprice", "askvol", "bidprice", "bidvol", "withdraw", "status"}, []*kdb.K{sym, qid, accountname, mytime, entrustno, stockcode, askprice, askvol, bidprice, bidvol, withdraw, status}}}
 
 	var err2 error
-
+	fmt.Println("K:", tab)
 	err2 = con.AsyncCall(sql, &kdb.K{-kdb.KS, kdb.NONE, "response"}, tab)
 	//	fmt.Println("==dopub== finished:", kline_data)
 	if err2 != nil {
@@ -188,4 +193,105 @@ func getNumDate(datetime time.Time, local *time.Location) float64 {
 	var qEpoch = time.Date(2000, time.January, 1, 0, 0, 0, 0, local)
 	diff := ((float64)(datetime.UnixNano()-qEpoch.UnixNano()) / (float64)(864000*100000000))
 	return diff
+}
+
+func MarshalTable(v interface{}, table kdb.Table) (e1 error, t kdb.Table) {
+	var err error = nil
+	var keys = []string{}
+	var values = []*kdb.K{}
+	vv := reflect.ValueOf(v)
+	aa := reflect.ValueOf(v).Elem()
+	if vv.Kind() != reflect.Ptr || vv.IsNil() {
+		err = errors.New("Invalid target type. Should be non null pointer")
+	}
+	vv = reflect.Indirect(vv)
+
+	for k := 0; k < vv.NumField(); k++ {
+		//		fmt.Println("vv.Field(k)", vv.Field(k))
+		//		fmt.Printf("%s -- %v \n", vv.Type().Field(k).Name, vv.Field(k).Kind().String())
+		if vv.Field(k).Kind() == reflect.Struct {
+			typ := vv.Field(k).Type()
+			if vv.Field(k).NumField() == 3 && typ.Field(0).Name == "sec" && typ.Field(1).Name == "nsec" {
+				m := vv.Field(k).MethodByName("Local")
+				rets := m.Call([]reflect.Value{})
+				var t time.Time = rets[0].Interface().(time.Time)
+				m2 := vv.Field(k).MethodByName("Location")
+				rets2 := m2.Call([]reflect.Value{})
+				var l *time.Location = rets2[0].Interface().(*time.Location)
+				var timeFloat64 float64 = getNumDate(t, l)
+				fmt.Println("timeFloat64,", timeFloat64)
+				keys = append(keys, strings.ToLower(vv.Type().Field(k).Name))
+				var tempk = &kdb.K{kdb.KZ, kdb.NONE, []float64{timeFloat64}}
+				values = append(values, tempk)
+			}
+
+			continue
+		}
+		//		fmt.Printf("value :%s ", aa.Field(k))
+
+		if vv.Field(k).Kind() == reflect.Int32 || (vv.Field(k).Kind() == reflect.Int64) {
+			keys = append(keys, strings.ToLower(vv.Type().Field(k).Name))
+			var tempk = &kdb.K{kdb.KI, kdb.NONE, []int32{aa.Field(k).Interface().(int32)}}
+			values = append(values, tempk)
+		}
+
+		if vv.Field(k).Kind() == reflect.Float32 {
+			keys = append(keys, strings.ToLower(vv.Type().Field(k).Name))
+			var tempk = &kdb.K{kdb.KF, kdb.NONE, []float32{aa.Field(k).Interface().(float32)}}
+			values = append(values, tempk)
+		}
+		if vv.Field(k).Kind() == reflect.Float64 {
+			keys = append(keys, strings.ToLower(vv.Type().Field(k).Name))
+			var tempk = &kdb.K{kdb.KF, kdb.NONE, []float64{aa.Field(k).Interface().(float64)}}
+			values = append(values, tempk)
+		}
+		if vv.Field(k).Kind() == reflect.Bool {
+			keys = append(keys, strings.ToLower(vv.Type().Field(k).Name))
+			var tempk = &kdb.K{kdb.KF, kdb.NONE, []bool{aa.Field(k).Interface().(bool)}}
+			values = append(values, tempk)
+
+		}
+		if vv.Field(k).Kind() == reflect.String {
+			fmt.Println("String")
+			keys = append(keys, strings.ToLower(vv.Type().Field(k).Name))
+			var tempk = &kdb.K{kdb.KS, kdb.NONE, []string{aa.Field(k).Interface().(string)}}
+			values = append(values, tempk)
+		}
+
+		//vv.Type().Field(k).Name
+		//		keys = append(keys, vv.Type().Field(k).Name)
+		//		var tempk = &kdb.K{kdb.KC, kdb.NONE, "123"}
+		//		values = append(values, tempk)
+	}
+	table.Columns = keys
+	table.Data = values
+	return err, table
+}
+
+/**
+con *kdb.KDBConn  kdb连接
+ v interface{}  需要操作的结构（kdb表对应的结构）
+dbTableName string kdb表名
+sql string  q语法
+**/
+func UpsertByInterface(con *kdb.KDBConn, v interface{}, dbTableName string, sql string) error {
+	var err error
+	table := kdb.Table{}
+	err, table = MarshalTable(v, table)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	tab := &kdb.K{kdb.XT, kdb.NONE, table}
+
+	var err2 error
+	fmt.Println("K:", tab)
+	err2 = con.AsyncCall(sql, &kdb.K{-kdb.KS, kdb.NONE, dbTableName}, tab)
+	//	fmt.Println("==dopub== finished:", kline_data)
+	if err2 != nil {
+		fmt.Println("Subscribe: %s", err2.Error())
+		return err2
+	}
+	return nil
 }
