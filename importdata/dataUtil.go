@@ -3,17 +3,20 @@ package importdata
 import (
 	"bufio"
 	"encoding/csv"
-	"finance"
+	//	"finance"
 	"fmt"
-	"importdata/util/string"
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"time"
-	//	"financeCloud/cim.git/conf"
+	"util/conf"
+	"util/string"
+
+	"github.com/llmofang/kdbutils"
 	"github.com/llmofang/kdbutils/tbls"
-	kdb "github.com/sv/kdbgo"
+	//	kdb "github.com/sv/kdbgo"
 )
 
 //此方法已经被READCSV取代
@@ -38,7 +41,7 @@ func ReadLine(fileName string) error {
 	return nil
 }
 
-func ReadCsv(fileName string) {
+func ReadCsv(fileName string, secNum int64, myKDB *kdbutils.Kdb) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -57,30 +60,25 @@ func ReadCsv(fileName string) {
 			return
 		}
 
-		handlerArray(record)
-		time.Sleep(time.Second * 1)
+		handlerArray(record, myKDB)
+		time.Sleep(time.Second * time.Duration(secNum))
 	}
 
 }
 
-func handlerArray(strArray []string) {
+func handlerArray(strArray []string, myKDB *kdbutils.Kdb) {
 	//windcode, date（nActionDay）, time, price(nmatch), volume(ivolume), turnover(iturnover), match_items(nNumTrades), interest(XX), trade_flag, bs_flag, acc_volume(??), acc_turnover(??),high(nhigh), low(nlow), open(nopen), pre_close(npreclose), bid_price1,bid_price2,bid_price3,bid_price4,bid_price5,bid_price6,bid_price7,bid_price8,bid_price9,bid_price10,bid_volume1,bid_volume2,bid_volume3,bid_volume4,bid_volume5,bid_volume6,bid_volume7,bid_volume8,bid_volume9,bid_volume10,ask_price1,ask_price2,ask_price3,ask_price4,ask_price5,ask_price6,ask_price7,ask_price8,ask_price9,ask_price10,bid_volume1,bid_volume2,bid_volume3,bid_volume4,bid_volume5,bid_volume6,bid_volume7,bid_volume8,bid_volume9,bid_volume10,ask_av_price()（nWeightedAvgAskPrice）, bid_av_price（nWeightedAvgBidPrice）, total_ask_volume(nTotalaskvolume), total_bid_volume(ntotalbidvolume)
 	//code,wind_code,name,    date,time,price,volume,turover,match_items8,    interest,trade_flag,bs_flag,accvolume,accturover,high,low,open,pre_close17,   ask10,ask9,ask8,ask7,ask6,ask5,ask4,ask3,ask2,ask1,                       bid1,bid2,bid3,bid4,bid5,bid6,bid7,bid8,bid9,bid10,                     asize10,asize9,asize8,asize7,asize6,asize5,asize4,asize3,asize2,asize1,bsize1,bsize2,bsize3,bsize4,bsize5,bsize6,bsize7,bsize8,bsize9,bsize10,ask_av_price,bid_av_price,total_ask_volume,total_bid_volume
 	//300218,300218.SZ,安利股份,20160923,92503000,256500,495300,12704445,104,  0,0,                32,495300,        12704445,256500,256500,256500,256700,    259900,259800,259000,258900,258000,257500,256800,256700,256600,256500,    256100,255000,254800,254200,254000,253200,252500,252200,251200,251100,  4900,5500,7000,3000,8800,1200,400000,586100,6400,296400,500,1500,600,400,100,4300,100,4300,4300,4300,261100,249300,1737409,38000
-	p := fmt.Println
-
+	//	p := fmt.Println
+	//	p("strArray ", strArray)
 	if strArray[0] == "code" {
 		return
 	}
-	//	m := &finance.Market{}
-	m := &tbls.Market{}
-	//	for i, v := range strArray {
-	//		fmt.Println("i:%d,v:%v", i, v)
 
-	//	}
+	m := tbls.Market{}
 	m.Sym = strArray[0]
 	m.SzWindCode = strArray[1]
-	//strArray[1] ==20161010   strArray[2]==95424000
 
 	yearstr := (strArray[3])[0:4]
 	monthstr := (strArray[3])[4:6]
@@ -89,7 +87,7 @@ func handlerArray(strArray []string) {
 	secondstr := strArray[4][strlength-5 : strlength-3]
 	minutestr := strArray[4][strlength-7 : strlength-5]
 	hourstr := strArray[4][0 : strlength-7]
-	p(secondstr, minutestr, hourstr)
+
 	withNanos := yearstr + "-" + monthstr + "-" + daystr + " " + hourstr + ":" + minutestr + ":" + secondstr
 
 	t, _ := time.Parse("2006-01-02 15:04:05", withNanos)
@@ -153,26 +151,11 @@ func handlerArray(strArray []string) {
 	m.NWeightedAvgBidPrice = stringutil.StrToInt32(strArray[59])
 	m.NTotalAskVol = stringutil.StrToInt32(strArray[60])
 	m.NTotalBidVol = stringutil.StrToInt32(strArray[61])
-	//	var host string
-	//	var port int
-	//	host = "127.0.0.1"
-	//	port = 3900
-	//	kdb := kdbutils.MewKdb(host, port)
+	//	p("m       :", m)
+	arr := []tbls.Market{}
+	arr = append(arr, m)
+	myKDB.FuncTable("upsert", "Market", arr)
 
-	//	kdb.Connect()
-	//	kdb.FuncTable("upsert", "Market", m)
-	p("m       :", m)
-	var con *kdb.KDBConn
-	var err error
-
-	con, err = kdb.DialKDB("127.0.0.1", 3900, "")
-	if err != nil {
-		fmt.Printf("Failed to connect kdb: %s", err.Error())
-		return
-
-	}
-	finance.UpsertByInterface(con, m, "Market", "upsert")
-	p("===UpsertByInterface==")
 }
 
 func handler(line string) {
@@ -193,13 +176,62 @@ func Read(path string) string {
 	return string(fd)
 }
 
-//根据json配置文件来读取CSV导入KDB,多个数据文件同时并行且定时
+//根据json配置文件来读取CSV导入KDB,多个数据文件同时并行且定时。原本要借用cim的util.conf,发现不合适
 func LoadCsvImportData(configfilePath string) {
+	fmt.Println("----LoadCsvImportData--- start")
+	myConfig := new(confutil.Config)
+	myConfig.InitConfig(configfilePath)
+	fmt.Println(myConfig.Read("default", "path"))
+	fmt.Printf("%v", myConfig.Mymap)
+	var filesArray []string
+	for i := 1; i < 10; i++ {
+		key := "path" + strconv.Itoa(i)
+		path := myConfig.Read("default", key)
+		if path != "" {
+			filesArray = append(filesArray, path)
+		}
+	}
+
+	timeStr := myConfig.Read("default", "time")
+	timeNum := int64(stringutil.StrToInt32(timeStr))
+	portStr := myConfig.Read("default", "port")
+	port := int(stringutil.StrToInt32(portStr))
+	host := myConfig.Read("default", "host")
+
+	fmt.Printf("host", host)
+	fmt.Println("port", port)
+
+	if host != "" && port != 0 {
+
+		if timeNum == 0 {
+			timeNum = 1
+		}
+
+		var business_chan chan int = make(chan int)
+
+		for x := 0; x < len(filesArray); x++ {
+
+			go handlerThread(x, filesArray[x], timeNum, host, port)
+		}
+		business_chan <- 0
+		fmt.Println("----LoadCsvImportData--- doing")
+
+		<-business_chan
+		fmt.Println("----LoadCsvImportData--- finish")
+
+	} else {
+		fmt.Println("error: no  host and port in conf")
+	}
 
 }
 
-func DoMain() {
+func handlerThread(i int, filepath string, secNum int64, host string, port int) {
+	//	fmt.Println("this is thead ", i, "now is  ", time.Now())
+	myKDB := kdbutils.MewKdb(host, port)
 
-	ReadCsv("D:\\stock\\data2\\300218.csv")
+	myKDB.Connect()
+
+	fmt.Println("this is thead ", i, "now is  ", time.Now())
+	ReadCsv(filepath, secNum, myKDB)
 
 }

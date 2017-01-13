@@ -9,7 +9,7 @@ import (
 
 	"reflect"
 
-	"errors"
+	//	"errors"
 	"strings"
 
 	kdb "github.com/sv/kdbgo"
@@ -200,10 +200,9 @@ func MarshalTable(v interface{}, table kdb.Table) (e1 error, t kdb.Table) {
 	var keys = []string{}
 	var values = []*kdb.K{}
 	vv := reflect.ValueOf(v)
-	aa := reflect.ValueOf(v).Elem()
-	if vv.Kind() != reflect.Ptr || vv.IsNil() {
-		err = errors.New("Invalid target type. Should be non null pointer")
-	}
+
+	//	fmt.Println("vv", vv)
+
 	vv = reflect.Indirect(vv)
 
 	for k := 0; k < vv.NumField(); k++ {
@@ -233,17 +232,13 @@ func MarshalTable(v interface{}, table kdb.Table) (e1 error, t kdb.Table) {
 		if vv.Field(k).Kind() == reflect.Int32 {
 			key := strings.ToLower((vv.Type().Field(k).Name)[0:1]) + (vv.Type().Field(k).Name)[1:]
 			keys = append(keys, key)
-			var tempk = &kdb.K{kdb.KI, kdb.NONE, []int32{aa.Field(k).Interface().(int32)}}
+			var tempk = &kdb.K{kdb.KI, kdb.NONE, []int32{vv.Field(k).Interface().(int32)}}
 			values = append(values, tempk)
 		}
 
 		if vv.Field(k).Kind() == reflect.Int64 {
-			//
-
 			key := strings.ToLower((vv.Type().Field(k).Name)[0:1]) + (vv.Type().Field(k).Name)[1:]
-
 			keys = append(keys, key)
-
 			var tempk *kdb.K
 			if vv.Field(k).Type().String() == "time.Duration" {
 				//				keys = append(keys, key)
@@ -251,7 +246,7 @@ func MarshalTable(v interface{}, table kdb.Table) (e1 error, t kdb.Table) {
 				//				fmt.Printf(" tempk : ", tempk)
 			} else {
 				keys = append(keys, key)
-				tempk = &kdb.K{kdb.KI, kdb.NONE, []int64{aa.Field(k).Interface().(int64)}}
+				tempk = &kdb.K{kdb.KI, kdb.NONE, []int64{vv.Field(k).Interface().(int64)}}
 			}
 
 			values = append(values, tempk)
@@ -260,33 +255,29 @@ func MarshalTable(v interface{}, table kdb.Table) (e1 error, t kdb.Table) {
 		if vv.Field(k).Kind() == reflect.Float32 {
 			key := strings.ToLower((vv.Type().Field(k).Name)[0:1]) + (vv.Type().Field(k).Name)[1:]
 			keys = append(keys, key)
-			var tempk = &kdb.K{kdb.KF, kdb.NONE, []float32{aa.Field(k).Interface().(float32)}}
+			var tempk = &kdb.K{kdb.KF, kdb.NONE, []float32{vv.Field(k).Interface().(float32)}}
 			values = append(values, tempk)
 		}
 		if vv.Field(k).Kind() == reflect.Float64 {
 			key := strings.ToLower((vv.Type().Field(k).Name)[0:1]) + (vv.Type().Field(k).Name)[1:]
 			keys = append(keys, key)
-			var tempk = &kdb.K{kdb.KF, kdb.NONE, []float64{aa.Field(k).Interface().(float64)}}
+			var tempk = &kdb.K{kdb.KF, kdb.NONE, []float64{vv.Field(k).Interface().(float64)}}
 			values = append(values, tempk)
 		}
 		if vv.Field(k).Kind() == reflect.Bool {
 			key := strings.ToLower((vv.Type().Field(k).Name)[0:1]) + (vv.Type().Field(k).Name)[1:]
 			keys = append(keys, key)
-			var tempk = &kdb.K{kdb.KF, kdb.NONE, []bool{aa.Field(k).Interface().(bool)}}
+			var tempk = &kdb.K{kdb.KF, kdb.NONE, []bool{vv.Field(k).Interface().(bool)}}
 			values = append(values, tempk)
 
 		}
 		if vv.Field(k).Kind() == reflect.String {
 			key := strings.ToLower((vv.Type().Field(k).Name)[0:1]) + (vv.Type().Field(k).Name)[1:]
 			keys = append(keys, key)
-			var tempk = &kdb.K{kdb.KS, kdb.NONE, []string{aa.Field(k).Interface().(string)}}
+			var tempk = &kdb.K{kdb.KS, kdb.NONE, []string{vv.Field(k).Interface().(string)}}
 			values = append(values, tempk)
 		}
 
-		//vv.Type().Field(k).Name
-		//		keys = append(keys, vv.Type().Field(k).Name)
-		//		var tempk = &kdb.K{kdb.KC, kdb.NONE, "123"}
-		//		values = append(values, tempk)
 	}
 	table.Columns = keys
 	table.Data = values
