@@ -151,7 +151,7 @@ func handlerArray(strArray []string, myKDB *kdbutils.Kdb) {
 	m.NWeightedAvgBidPrice = stringutil.StrToInt32(strArray[59])
 	m.NTotalAskVol = stringutil.StrToInt32(strArray[60])
 	m.NTotalBidVol = stringutil.StrToInt32(strArray[61])
-	//	p("m       :", m)
+
 	arr := []tbls.Market{}
 	arr = append(arr, m)
 	myKDB.FuncTable("upsert", "Market", arr)
