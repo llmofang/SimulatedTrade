@@ -1,0 +1,14 @@
+[default]
+path1= D:/stock/data2/0207/300218.csv
+path2= D:/stock/data2/0207/000935.csv
+
+
+time= 3
+host= 139.196.74.112
+port= 5061
+ 
+[test]
+num =	666
+something  = wrong  #×¢ÊÍ1
+#fdfdfd = fdfdfd    ×¢ÊÍÕûĞĞ
+refer= refer       //×¢ÊÍ3
