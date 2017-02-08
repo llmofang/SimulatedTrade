@@ -80,18 +80,21 @@ var mapMarket map[string]Market = make(map[string]Market)
 
 var marketChan chan int = make(chan int)
 
-func getMarket() {
+func getMarket(host string, port int) {
+
+	fmt.Println("==getMarket  host:", host)
+	fmt.Println("==getMarket  port:", port)
 
 	var con *kdb.KDBConn
 	var err error
-	//	con, err = kdb.DialKDB("192.168.222.1", 3900, "")
-	con, err = kdb.DialKDB("139.196.77.165", 5033, "")
+
+	con, err = kdb.DialKDB(host, port, "")
 	if err != nil {
 		fmt.Printf("Failed to connect kdb: %s", err.Error())
 		return
 
 	}
-	//err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "Transaction"}, &kdb.K{-kdb.KS, kdb.NONE, ""})
+
 	err = con.AsyncCall(".u.sub", &kdb.K{-kdb.KS, kdb.NONE, "Market"}, &kdb.K{-kdb.KS, kdb.NONE, ""})
 
 	if err != nil {
@@ -118,7 +121,7 @@ func getMarket() {
 				fmt.Println("Failed to unmrshall dict ", err)
 				continue
 			}
-			//			fmt.Println(kline_data)
+			fmt.Println(kline_data)
 			mapMarket[kline_data.Sym] = *kline_data
 
 		}
@@ -126,6 +129,7 @@ func getMarket() {
 		//		time.Sleep(time.Second * 3)
 	}
 	marketChan <- 0
+
 }
 
 //func UpdateToKDB(kline_data *Market, sql string) {

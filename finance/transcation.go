@@ -3,7 +3,10 @@ package finance
 
 import (
 	"fmt"
+	"strconv"
 	"time"
+	"util/conf"
+	"util/string"
 )
 
 var business_chan chan int = make(chan int)
@@ -13,11 +16,41 @@ func DoMain() {
 	//  nmatch是市价
 	fmt.Println("===main===")
 
-	go getMarket()
-	go getTransaction()
+	myConfig := new(confutil.Config)
+	myConfig.InitConfig("./transcation_config.txt")
+	fmt.Println(myConfig.Read("default", "path"))
+	fmt.Printf("%v", myConfig.Mymap)
+	var filesArray []string
+	for i := 1; i < 10; i++ {
+		key := "path" + strconv.Itoa(i)
+		path := myConfig.Read("default", key)
+		if path != "" {
+			filesArray = append(filesArray, path)
+		}
+	}
 
-	go dohandle()
-	<-marketChan
+	portStr := myConfig.Read("default", "market_port")
+	market_port := int(stringutil.StrToInt32(portStr))
+	market_host := myConfig.Read("default", "market_host")
+
+	fmt.Printf("market_host", market_host)
+	fmt.Println("market_port", market_port)
+
+	order_portStr := myConfig.Read("default", "order_port")
+	order_port := int(stringutil.StrToInt32(order_portStr))
+	order_host := myConfig.Read("default", "order_host")
+
+	fmt.Printf("order_host", order_host)
+	fmt.Println("order_port", order_port)
+
+	if market_host != "" && market_port != 0 && order_host != "" && order_port != 0 {
+		fmt.Println("---getMarket-LoadConfigData--- start")
+		go getMarket(market_host, market_port)
+		go getTransaction(order_host, order_port)
+
+		go dohandle()
+		<-marketChan
+	}
 	fmt.Println("===over===")
 
 }

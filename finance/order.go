@@ -51,12 +51,14 @@ var mapOrder smap.Map = smap.New(true)
 
 var orderChan chan int = make(chan int)
 
-func getTransaction() {
+func getTransaction(host string, port int) {
 
+	fmt.Println("==getOrder  host:", host)
+	fmt.Println("==getOrder  port:", port)
 	for {
 		var con *kdb.KDBConn
 		var err error
-		con, err = kdb.DialKDB("10.0.0.71", 5010, "")
+		con, err = kdb.DialKDB(host, port, "")
 		//	con, err = kdb.DialKDB("139.196.77.165", 5033, "")
 		if err != nil {
 			fmt.Printf("Failed to connect kdb: %s", err.Error())
