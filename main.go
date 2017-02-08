@@ -63,7 +63,7 @@ func main() {
 	fmt.Println("xxx")
 	fmt.Println("xxx")
 	fmt.Println(time.Now())
-	importdata.LoadCsvImportData("D:/gocode/src/config.txt")
+	importdata.LoadCsvImportData("./config.txt")
 }
 
 type Stu struct {
