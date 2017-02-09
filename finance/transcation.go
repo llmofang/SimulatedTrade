@@ -7,6 +7,8 @@ import (
 	"time"
 	"util/conf"
 	"util/string"
+
+	"github.com/llmofang/kdbutils"
 )
 
 var business_chan chan int = make(chan int)
@@ -48,7 +50,7 @@ func DoMain() {
 		go getMarket(market_host, market_port)
 		go getTransaction(order_host, order_port)
 
-		go dohandle()
+		go dohandle(order_host, order_port)
 		<-marketChan
 	}
 	fmt.Println("===over===")
@@ -68,8 +70,12 @@ func DoMain() {
 
 //}
 
-func dohandle() {
+func dohandle(host string, port int) {
 	fmt.Println("==thread   ==  dohandle==", time.Now())
+
+	kdb := kdbutils.MewKdb(host, port)
+
+	kdb.Connect()
 	for {
 
 		var mapOrderForDelete map[string]*Response = make(map[string]*Response)
@@ -89,8 +95,8 @@ func dohandle() {
 					v_order.Status = 5
 					v_order.Withdraw = v_order.Askvol
 					v_order.Time = time.Now()
-
-					Dopub(v_order, "wsupd")
+					kdb.FuncTable("wsupd", "response", v_order)
+					//					Dopub(v_order, "wsupd")
 					mapOrderForDelete[v_order.Qid] = v_order
 					fmt.Println("撤单状态已经5", v_order)
 				} else if v_order.Status == 1 {
@@ -108,7 +114,8 @@ func dohandle() {
 								v_order.Bidprice = v_order.Askprice
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
-								Dopub(v_order, "wsupd")
+								kdb.FuncTable("wsupd", "response", v_order)
+								//								Dopub(v_order, "wsupd")
 								v_order.Unlock()
 								fmt.Println("交易完成状态已经4 :", v_order)
 							}
@@ -124,7 +131,8 @@ func dohandle() {
 								v_order.Bidprice = v_order.Askprice
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
-								Dopub(v_order, "wsupd")
+								kdb.FuncTable("wsupd", "response", v_order)
+								//								Dopub(v_order, "wsupd")
 								v_order.Unlock()
 								fmt.Println("交易完成状态已经4 :", v_order)
 							}
@@ -144,7 +152,8 @@ func dohandle() {
 					v_order.Entrustno = int32(entrustno)
 					v_order.Time = time.Now()
 
-					Dopub(v_order, "wsupd")
+					kdb.FuncTable("wsupd", "response", v_order)
+					//					Dopub(v_order, "wsupd")
 					v_order.Unlock()
 					fmt.Println("状态已经改成1  ", v_order)
 				}
