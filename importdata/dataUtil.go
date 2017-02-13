@@ -153,7 +153,7 @@ func handlerArray(strArray []string, myKDB *kdbutils.Kdb) {
 
 	arr := []tbls.Market2{}
 	arr = append(arr, m)
-	myKDB.FuncTable("upsert", "Market", arr)
+	myKDB.FuncTable("upd", "Market", arr)
 
 }
 
