@@ -4,7 +4,7 @@ import (
 	//	"finance"
 	"fmt"
 	//	"stat"
-	"importdata"
+	"github.com/llmofang/SimulatedTrade/importdata"
 	"time"
 
 	//	kdb "github.com/sv/kdbgo"

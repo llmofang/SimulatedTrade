@@ -11,12 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"util/conf"
-	"util/string"
+	"github.com/llmofang/SimulatedTrade/util/conf"
+	"github.com/llmofang/SimulatedTrade/util/string"
 
 	"github.com/llmofang/kdbutils"
 	"github.com/llmofang/kdbutils/tbls"
-	//	kdb "github.com/sv/kdbgo"
 )
 
 //此方法已经被READCSV取代
@@ -76,7 +75,7 @@ func handlerArray(strArray []string, myKDB *kdbutils.Kdb) {
 		return
 	}
 
-	m := tbls.Market{}
+	m := tbls.Market2{}
 	m.Sym = strArray[0]
 	m.SzWindCode = strArray[1]
 
@@ -152,7 +151,7 @@ func handlerArray(strArray []string, myKDB *kdbutils.Kdb) {
 	m.NTotalAskVol = stringutil.StrToInt32(strArray[60])
 	m.NTotalBidVol = stringutil.StrToInt32(strArray[61])
 
-	arr := []tbls.Market{}
+	arr := []tbls.Market2{}
 	arr = append(arr, m)
 	myKDB.FuncTable("upsert", "Market", arr)
 
