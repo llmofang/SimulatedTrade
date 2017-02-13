@@ -1,7 +1,7 @@
 package main
 
 import (
-	"finance"
+	"github.com/llmofang/SimulatedTrade/finance"
 	"fmt"
 
 	"time"
