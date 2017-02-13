@@ -1,11 +1,11 @@
 [default]
-path1= D:/stock/data2/0207/300218.csv
-path2= D:/stock/data2/0207/000935.csv
+path1= /home/trade/go/src/github.com/llmofang/SimulatedTrade/300218.csv
+path2= /home/trade/go/src/github.com/llmofang/SimulatedTrade/000935.csv
 
 
 time= 3
-host= localhost
-port= 3900
+host= 10.0.2.76
+port= 5061
  
 [test]
 num =	666
