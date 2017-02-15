@@ -8,11 +8,10 @@ import (
 	"github.com/smartwalle/container/smap"
 
 	"github.com/llmofang/kdbutils"
-	//	"github.com/llmofang/kdbutils/tbls"
 )
 
 type Response struct {
-	sync.Mutex
+	//	sync.Mutex
 	Sym         string
 	Qid         string
 	Accountname string
@@ -56,12 +55,12 @@ func getTransaction(host string, port int) {
 
 	kdb.Connect()
 
-	kdb.Subscribe("response", nil)
+	kdb.Subscribe("request", nil)
 
 	ch := make(chan interface{}, 1000)
 	table2struct := make(map[string]kdbutils.Factory_New)
 
-	table2struct["response"] = func() interface{} {
+	table2struct["request"] = func() interface{} {
 		return new(Response)
 	}
 

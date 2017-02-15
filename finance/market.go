@@ -40,7 +40,7 @@ func getMarket(host string, port int) {
 
 			case *tbls.Market:
 				market := data.(*tbls.Market)
-				fmt.Println("data----market:", market)
+				//				fmt.Println("data----market:", market)
 				mapMarket[market.Sym] = market
 			}
 		}
