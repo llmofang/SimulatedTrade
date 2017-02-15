@@ -96,7 +96,7 @@ func dohandle(host string, port int) {
 					v_order.Withdraw = v_order.Askvol
 					v_order.Time = time.Now()
 
-					kdb.FuncTable("wsupd", "response", []Response{*v_order})
+					kdb.FuncTable("wsupd0", "response", []Response{*v_order})
 					//					v_order.Unlock()
 					mapOrderForDelete[v_order.Qid] = v_order
 					fmt.Println("撤单状态已经5", v_order)
@@ -114,7 +114,7 @@ func dohandle(host string, port int) {
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
 
-								kdb.FuncTable("wsupd", "response", []Response{*v_order})
+								kdb.FuncTable("wsupd0", "response", []Response{*v_order})
 
 								//								v_order.Unlock()
 								fmt.Println("交易完成状态已经4 :", v_order)
@@ -135,7 +135,7 @@ func dohandle(host string, port int) {
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
 
-								kdb.FuncTable("wsupd", "response", []Response{*v_order})
+								kdb.FuncTable("wsupd0", "response", []Response{*v_order})
 
 								//								v_order.Unlock()
 								fmt.Println("交易完成状态已经4 :", v_order)
@@ -156,7 +156,7 @@ func dohandle(host string, port int) {
 					v_order.Entrustno = int32(entrustno)
 					v_order.Time = time.Now()
 
-					kdb.FuncTable("wsupd", "response", []Response{*v_order})
+					kdb.FuncTable("wsupd0", "response", []Response{*v_order})
 
 					//					v_order.Unlock()
 					fmt.Println("状态已经改成1  ", v_order)
