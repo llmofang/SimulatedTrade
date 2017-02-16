@@ -110,7 +110,7 @@ func dohandle(host string, port int) {
 								fmt.Println("处理交易,状态1->4 :", v_order)
 								//								v_order.Lock()
 								v_order.Status = 4
-								v_order.Bidprice = float64(v_market.NMatch / 10000)
+								v_order.Bidprice = float64(v_market.NMatch) / 10000
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
 
@@ -131,7 +131,7 @@ func dohandle(host string, port int) {
 								fmt.Println("处理交易,状态1->4 :", v_order)
 								//								v_order.Lock()
 								v_order.Status = 4
-								v_order.Bidprice = float64(v_market.NMatch / 10000)
+								v_order.Bidprice = float64(v_market.NMatch) / 10000
 								v_order.Bidvol = v_order.Askvol
 								v_order.Time = time.Now()
 
