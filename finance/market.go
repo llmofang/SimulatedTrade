@@ -7,7 +7,7 @@ import (
 	"github.com/llmofang/kdbutils/tbls"
 )
 
-var mapMarket map[string]*tbls.Market = make(map[string]*tbls.Market)
+var mapMarket map[string]*tbls.Market2 = make(map[string]*tbls.Market2)
 
 var marketChan chan int = make(chan int)
 
@@ -26,7 +26,7 @@ func getMarket(host string, port int) {
 	table2struct := make(map[string]kdbutils.Factory_New)
 
 	table2struct["Market"] = func() interface{} {
-		return new(tbls.Market)
+		return new(tbls.Market2)
 	}
 
 	go kdb.SubscribedData2Channel(ch, table2struct)
@@ -38,8 +38,8 @@ func getMarket(host string, port int) {
 			data = <-ch
 			switch data.(type) {
 
-			case *tbls.Market:
-				market := data.(*tbls.Market)
+			case *tbls.Market2:
+				market := data.(*tbls.Market2)
 				//				fmt.Println("data----market:", market)
 				mapMarket[market.Sym] = market
 			}
